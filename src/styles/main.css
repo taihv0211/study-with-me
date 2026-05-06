@@ -526,6 +526,51 @@ button {
   text-align: center;
 }
 
+.quiz-card {
+  min-height: 220px;
+}
+
+.quiz-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.quiz-option {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 10px;
+  align-items: center;
+  min-height: 64px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 12px;
+  text-align: left;
+}
+
+.quiz-option:hover {
+  border-color: rgba(22, 115, 107, 0.45);
+  background: var(--surface-2);
+}
+
+.quiz-option span {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--primary);
+  color: white;
+  font-weight: 850;
+}
+
+.quiz-option strong {
+  line-height: 1.35;
+}
+
 .prompt-text {
   margin: 0;
   font-size: clamp(3rem, 10vw, 6rem);
@@ -653,7 +698,8 @@ button {
   }
 
   .answer-actions,
-  .result-summary {
+  .result-summary,
+  .quiz-options {
     grid-template-columns: 1fr;
   }
 }
@@ -857,6 +903,10 @@ button {
     padding: 20px 14px;
   }
 
+  .quiz-card {
+    min-height: 190px;
+  }
+
   .prompt-text {
     font-size: clamp(2.45rem, 15vw, 4.1rem);
     overflow-wrap: anywhere;
@@ -875,6 +925,10 @@ button {
 
   .answer-actions .btn {
     min-height: 48px;
+  }
+
+  .quiz-option {
+    min-height: 58px;
   }
 
   .result-box {

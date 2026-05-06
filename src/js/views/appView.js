@@ -119,15 +119,53 @@ function createAppView(root, modalRoot) {
             </span>
             <span class="arrow">Vào học</span>
           </a>
-          <div class="feature-tile">
-            <span class="tile-kicker">Later</span>
+          <a class="feature-tile" href="#/chinese/quiz">
+            <span class="tile-kicker">Quiz</span>
             <span>
-              <h2 class="tile-title">Ngữ pháp</h2>
-              <p class="tile-desc">Chừa sẵn cho giai đoạn sau.</p>
+              <h2 class="tile-title">Trắc nghiệm</h2>
+              <p class="tile-desc">Chọn nghĩa đúng cho pinyin với 4 đáp án.</p>
             </span>
-            <span class="meta">Coming soon</span>
+            <span class="arrow">Kiểm tra</span>
+          </a>
+        </section>
+      `);
+    },
+
+    renderQuizPage({ decks }) {
+      const usableDecks = decks.filter((deck) => deck.cards.length >= 4 && new Set(deck.cards.map((card) => card.meaning)).size >= 4);
+      this.renderLayout(`
+        <section class="section-head">
+          <div>
+            <h1>Trắc nghiệm</h1>
+            <p>Câu hỏi lấy từ pinyin. Mỗi câu có 1 nghĩa đúng và 3 đáp án nhiễu từ cùng bộ.</p>
           </div>
         </section>
+        ${
+          usableDecks.length
+            ? `<section class="deck-grid">
+                ${usableDecks
+                  .map(
+                    (deck) => `
+                      <article class="deck-card">
+                        <div>
+                          <span class="tile-kicker">${escapeHtml(tagText(deck.tags))}</span>
+                          <h2 class="deck-title">${escapeHtml(deck.title)}</h2>
+                          <p class="deck-desc">${escapeHtml(deck.description || "Chưa có mô tả.")}</p>
+                        </div>
+                        <div class="deck-stats">
+                          <span class="pill">${deck.cards.length} câu</span>
+                          <span class="pill">4 đáp án</span>
+                        </div>
+                        <div class="button-row">
+                          <button class="btn primary" data-action="choose-quiz" data-id="${deck.id}">Bắt đầu</button>
+                        </div>
+                      </article>
+                    `
+                  )
+                  .join("")}
+              </section>`
+            : `<div class="empty-state">Cần ít nhất 4 từ trong một bộ để tạo trắc nghiệm.</div>`
+        }
       `);
     },
 
@@ -512,6 +550,147 @@ function createAppView(root, modalRoot) {
         const mode = event.target.closest("[data-mode]")?.dataset.mode;
         if (close) this.closeModal();
         if (mode) showDirectionStep(mode);
+      };
+    },
+
+    showQuizChoice(deck, onChoose) {
+      modalRoot.innerHTML = `
+        <div class="modal-backdrop">
+          <section class="modal" role="dialog" aria-modal="true">
+            <header class="modal-head">
+              <div>
+                <h2>${escapeHtml(deck.title)}</h2>
+                <p>${deck.cards.length} câu trắc nghiệm trong bộ này.</p>
+              </div>
+              <button class="icon-btn" type="button" data-action="close-modal" title="Đóng">×</button>
+            </header>
+            <div class="modal-body">
+              <div class="feature-grid">
+                <button class="feature-tile" data-mode="sequential">
+                  <span class="tile-kicker">Ordered</span>
+                  <span>
+                    <h3 class="tile-title">Làm tuần tự</h3>
+                    <p class="tile-desc">Đi theo đúng thứ tự từ vựng trong bộ.</p>
+                  </span>
+                </button>
+                <button class="feature-tile" data-mode="random">
+                  <span class="tile-kicker">Shuffle</span>
+                  <span>
+                    <h3 class="tile-title">Làm ngẫu nhiên</h3>
+                    <p class="tile-desc">Xáo trộn thứ tự câu hỏi trước khi bắt đầu.</p>
+                  </span>
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      `;
+      modalRoot.onclick = (event) => {
+        const close = event.target.closest('[data-action="close-modal"]');
+        const mode = event.target.closest("[data-mode]")?.dataset.mode;
+        if (close) this.closeModal();
+        if (mode) onChoose(mode);
+      };
+    },
+
+    renderQuizQuestion({ deck, questions, index, answers, onAnswer, onExit }) {
+      const question = questions[index];
+      const correct = answers.filter((item) => item.correct).length;
+      modalRoot.innerHTML = `
+        <div class="modal-backdrop">
+          <section class="modal large" role="dialog" aria-modal="true">
+            <header class="modal-head">
+              <div>
+                <h2>${escapeHtml(deck.title)}</h2>
+                <p>Chọn nghĩa đúng cho pinyin.</p>
+              </div>
+              <button class="icon-btn" type="button" data-action="exit" title="Thoát">×</button>
+            </header>
+            <div class="modal-body">
+              <div class="progress-line">
+                <span>Câu ${index + 1}/${questions.length}</span>
+                <span>Đúng ${correct}</span>
+              </div>
+              <div class="learn-card quiz-card">
+                <div>
+                  <span class="study-label">Pinyin</span>
+                  <p class="prompt-text">${escapeHtml(question.prompt)}</p>
+                </div>
+              </div>
+              <div class="quiz-options">
+                ${question.options
+                  .map(
+                    (option, optionIndex) => `
+                      <button class="quiz-option" type="button" data-answer="${escapeHtml(option)}">
+                        <span>${String.fromCharCode(65 + optionIndex)}</span>
+                        <strong>${escapeHtml(option)}</strong>
+                      </button>
+                    `
+                  )
+                  .join("")}
+              </div>
+            </div>
+          </section>
+        </div>
+      `;
+      modalRoot.onclick = (event) => {
+        if (event.target.closest('[data-action="exit"]')) onExit();
+        const answer = event.target.closest("[data-answer]")?.dataset.answer;
+        if (answer) onAnswer(answer);
+      };
+    },
+
+    renderQuizResult({ deck, answers, onRestart, onClose }) {
+      const total = answers.length;
+      const wrong = answers.filter((item) => !item.correct);
+      const correct = total - wrong.length;
+      const percent = total ? Math.round((correct / total) * 100) : 0;
+
+      modalRoot.innerHTML = `
+        <div class="modal-backdrop">
+          <section class="modal large" role="dialog" aria-modal="true">
+            <header class="modal-head">
+              <div>
+                <h2>Kết quả trắc nghiệm: ${escapeHtml(deck.title)}</h2>
+                <p>Hoàn thành ${total} câu.</p>
+              </div>
+              <button class="icon-btn" type="button" data-action="close" title="Đóng">×</button>
+            </header>
+            <div class="modal-body">
+              <div class="result-summary">
+                <div class="result-box"><span class="meta">Đúng</span><span class="result-value">${correct}</span></div>
+                <div class="result-box"><span class="meta">Sai</span><span class="result-value">${wrong.length}/${total}</span></div>
+                <div class="result-box"><span class="meta">Điểm</span><span class="result-value">${percent}%</span></div>
+              </div>
+              ${
+                wrong.length
+                  ? `<h3>Các câu sai</h3>
+                    <div class="wrong-list">
+                      ${wrong
+                        .map(
+                          (item) => `
+                            <div class="wrong-item">
+                              <strong>Pinyin: ${escapeHtml(item.question.prompt)}</strong>
+                              <div>Bạn chọn: ${escapeHtml(item.selectedAnswer)}</div>
+                              <div>Đáp án đúng: ${escapeHtml(item.question.correctAnswer)}</div>
+                            </div>
+                          `
+                        )
+                        .join("")}
+                    </div>`
+                  : `<div class="empty-state">Bạn trả lời đúng toàn bộ câu hỏi.</div>`
+              }
+            </div>
+            <footer class="modal-foot">
+              <button class="btn ghost" type="button" data-action="close">Đóng</button>
+              <button class="btn primary" type="button" data-action="restart">Làm lại</button>
+            </footer>
+          </section>
+        </div>
+      `;
+      modalRoot.onclick = (event) => {
+        if (event.target.closest('[data-action="restart"]')) onRestart();
+        if (event.target.closest('[data-action="close"]')) onClose();
       };
     },
 

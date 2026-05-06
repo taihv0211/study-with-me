@@ -46,9 +46,27 @@ function buildStudyCards(cards, direction) {
   });
 }
 
+function buildQuizQuestions(cards, mode) {
+  const source = mode === "random" ? shuffle(cards) : [...cards];
+  return source.map((card) => {
+    const distractors = shuffle(
+      Array.from(new Set(cards.filter((item) => item.id !== card.id).map((item) => item.meaning)))
+    ).slice(0, 3);
+    const options = shuffle([card.meaning, ...distractors]);
+
+    return {
+      card,
+      prompt: card.pinyin,
+      correctAnswer: card.meaning,
+      options
+    };
+  });
+}
+
 function createController({ store, view }) {
   let deckQuery = "";
   let activeSession = null;
+  let activeQuiz = null;
 
   function render() {
     const route = window.location.hash || "#/";
@@ -62,6 +80,10 @@ function createController({ store, view }) {
     }
     if (route === "#/chinese/flashcards") {
       view.renderFlashcards({ decks: store.getDecks(), query: deckQuery, syncStatus: store.getSyncStatus() });
+      return;
+    }
+    if (route === "#/chinese/quiz") {
+      view.renderQuizPage({ decks: store.getDecks() });
       return;
     }
     if (route === "#/english") {
@@ -165,6 +187,62 @@ function createController({ store, view }) {
     });
   }
 
+  function startQuiz(deck, mode) {
+    const uniqueMeanings = new Set(deck.cards.map((card) => card.meaning));
+    if (deck.cards.length < 4 || uniqueMeanings.size < 4) {
+      view.alert("Cần ít nhất 4 từ có nghĩa khác nhau trong bộ để tạo trắc nghiệm 4 đáp án.");
+      return;
+    }
+
+    activeQuiz = {
+      deck,
+      mode,
+      questions: buildQuizQuestions(deck.cards, mode),
+      index: 0,
+      answers: []
+    };
+    renderQuizQuestion();
+  }
+
+  function renderQuizQuestion() {
+    view.renderQuizQuestion({
+      ...activeQuiz,
+      onAnswer(selectedAnswer) {
+        const question = activeQuiz.questions[activeQuiz.index];
+        activeQuiz.answers.push({
+          question,
+          selectedAnswer,
+          correct: selectedAnswer === question.correctAnswer
+        });
+        activeQuiz.index += 1;
+        if (activeQuiz.index >= activeQuiz.questions.length) {
+          renderQuizResult();
+          return;
+        }
+        renderQuizQuestion();
+      },
+      onExit() {
+        activeQuiz = null;
+        view.closeModal();
+      }
+    });
+  }
+
+  function renderQuizResult() {
+    const completed = activeQuiz;
+    view.renderQuizResult({
+      deck: completed.deck,
+      answers: completed.answers,
+      onRestart() {
+        startQuiz(completed.deck, completed.mode);
+      },
+      onClose() {
+        activeQuiz = null;
+        view.closeModal();
+      }
+    });
+  }
+
   async function handleClick(event) {
     const target = event.target.closest("[data-action]");
     if (!target) return;
@@ -204,6 +282,16 @@ function createController({ store, view }) {
         return;
       }
       view.showStudyChoice(deck, (mode, direction) => startStudy(deck, mode, direction));
+    }
+
+    if (action === "choose-quiz") {
+      const deck = store.getDeck(id);
+      if (!deck) return;
+      if (!deck.cards.length) {
+        view.alert("Bộ này chưa có từ nào để kiểm tra.");
+        return;
+      }
+      view.showQuizChoice(deck, (mode) => startQuiz(deck, mode));
     }
 
     if (action === "export-json") {

@@ -1,0 +1,15 @@
+[
+  {
+    "id": "daily-basics",
+    "title": "Tiếng Trung cơ bản mỗi ngày",
+    "description": "Những từ đầu tiên để làm quen pinyin và nghĩa.",
+    "tags": ["HSK 1", "Cơ bản"],
+    "cards": [
+      { "id": "card-nihao", "pinyin": "ni hao", "meaning": "xin chào" },
+      { "id": "card-xiexie", "pinyin": "xie xie", "meaning": "cảm ơn" },
+      { "id": "card-zaijian", "pinyin": "zai jian", "meaning": "tạm biệt" },
+      { "id": "card-qing", "pinyin": "qing", "meaning": "mời / xin vui lòng" },
+      { "id": "card-duibuqi", "pinyin": "dui bu qi", "meaning": "xin lỗi" }
+    ]
+  }
+]

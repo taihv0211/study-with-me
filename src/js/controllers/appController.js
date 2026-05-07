@@ -24,6 +24,18 @@ function buildStudyCards(cards, direction) {
     const cardDirection =
       direction === "mixed" ? (Math.random() > 0.5 ? "pinyin-first" : "meaning-first") : direction;
 
+    if (cardDirection === "both") {
+      return {
+        ...card,
+        direction: cardDirection,
+        prompt: card.pinyin,
+        answer: card.meaning,
+        promptLabel: "Pinyin",
+        answerLabel: "Nghĩa",
+        showBoth: true
+      };
+    }
+
     if (cardDirection === "meaning-first") {
       return {
         ...card,
@@ -46,13 +58,13 @@ function buildStudyCards(cards, direction) {
   });
 }
 
-function buildQuizQuestions(cards, mode) {
-  const source = mode === "random" ? shuffle(cards) : [...cards];
+function buildQuizQuestions(questionCards, randomize, optionPool) {
+  const source = randomize ? shuffle(questionCards) : [...questionCards];
   return source.map((card) => {
     const distractors = shuffle(
-      Array.from(new Set(cards.filter((item) => item.id !== card.id).map((item) => item.meaning)))
+      Array.from(new Set(optionPool.filter((item) => item.id !== card.id).map((item) => item.meaning)))
     ).slice(0, 3);
-    const options = shuffle([card.meaning, ...distractors]);
+    const options = randomize ? shuffle([card.meaning, ...distractors]) : [card.meaning, ...distractors];
 
     return {
       card,
@@ -130,8 +142,11 @@ function createController({ store, view }) {
     });
   }
 
-  function startStudy(deck, mode, direction) {
-    const orderedCards = mode === "random" ? shuffle(deck.cards) : [...deck.cards];
+  function startStudy(deck, mode, direction, selectedIds = null) {
+    const selectedCards = selectedIds?.length
+      ? deck.cards.filter((card) => selectedIds.includes(card.id))
+      : deck.cards;
+    const orderedCards = mode === "random" ? shuffle(selectedCards) : [...selectedCards];
     const cards = buildStudyCards(orderedCards, direction);
     activeSession = {
       deck,
@@ -140,7 +155,9 @@ function createController({ store, view }) {
       revealed: false,
       answers: [],
       mode,
-      direction
+      direction,
+      selectedIds,
+      reviewOnly: direction === "both"
     };
     renderStudySession();
   }
@@ -165,7 +182,30 @@ function createController({ store, view }) {
         }
         renderStudySession();
       },
+      onNext() {
+        activeSession.index += 1;
+        if (activeSession.index >= activeSession.cards.length) {
+          renderStudyComplete();
+          return;
+        }
+        renderStudySession();
+      },
       onExit() {
+        activeSession = null;
+        view.closeModal();
+      }
+    });
+  }
+
+  function renderStudyComplete() {
+    const completed = activeSession;
+    view.renderStudyComplete({
+      deck: completed.deck,
+      total: completed.cards.length,
+      onRestart() {
+        startStudy(completed.deck, completed.mode, completed.direction, completed.selectedIds);
+      },
+      onClose() {
         activeSession = null;
         view.closeModal();
       }
@@ -178,7 +218,7 @@ function createController({ store, view }) {
       deck: completed.deck,
       answers: completed.answers,
       onRestart() {
-        startStudy(completed.deck, completed.mode, completed.direction);
+        startStudy(completed.deck, completed.mode, completed.direction, completed.selectedIds);
       },
       onClose() {
         activeSession = null;
@@ -187,17 +227,27 @@ function createController({ store, view }) {
     });
   }
 
-  function startQuiz(deck, mode) {
+  function startQuiz(deck, selectedIds = null, randomize = true) {
     const uniqueMeanings = new Set(deck.cards.map((card) => card.meaning));
     if (deck.cards.length < 4 || uniqueMeanings.size < 4) {
       view.alert("Cần ít nhất 4 từ có nghĩa khác nhau trong bộ để tạo trắc nghiệm 4 đáp án.");
       return;
     }
 
+    const selectedCards = selectedIds?.length
+      ? deck.cards.filter((card) => selectedIds.includes(card.id))
+      : deck.cards;
+
+    if (!selectedCards.length) {
+      view.alert("Chọn ít nhất 1 câu hỏi để làm.");
+      return;
+    }
+
     activeQuiz = {
       deck,
-      mode,
-      questions: buildQuizQuestions(deck.cards, mode),
+      selectedIds,
+      randomize,
+      questions: buildQuizQuestions(selectedCards, randomize, deck.cards),
       index: 0,
       answers: []
     };
@@ -234,7 +284,7 @@ function createController({ store, view }) {
       deck: completed.deck,
       answers: completed.answers,
       onRestart() {
-        startQuiz(completed.deck, completed.mode);
+        startQuiz(completed.deck, completed.selectedIds, completed.randomize);
       },
       onClose() {
         activeQuiz = null;
@@ -281,7 +331,7 @@ function createController({ store, view }) {
         view.alert("Bộ này chưa có từ nào để học.");
         return;
       }
-      view.showStudyChoice(deck, (mode, direction) => startStudy(deck, mode, direction));
+      view.showStudyChoice(deck, (mode, direction, selectedIds) => startStudy(deck, mode, direction, selectedIds));
     }
 
     if (action === "choose-quiz") {
@@ -291,7 +341,7 @@ function createController({ store, view }) {
         view.alert("Bộ này chưa có từ nào để kiểm tra.");
         return;
       }
-      view.showQuizChoice(deck, (mode) => startQuiz(deck, mode));
+      view.showQuizChoice(deck, (selectedIds, randomize) => startQuiz(deck, selectedIds, randomize));
     }
 
     if (action === "export-json") {

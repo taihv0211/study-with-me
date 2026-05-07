@@ -467,14 +467,56 @@ function createAppView(root, modalRoot) {
     },
 
     showStudyChoice(deck, onChoose) {
-      const showDirectionStep = (mode) => {
+      const showModeStep = () => {
+        modalRoot.innerHTML = `
+          <div class="modal-backdrop">
+            <section class="modal" role="dialog" aria-modal="true">
+              <header class="modal-head">
+                <div>
+                  <span class="step-label">Bước 1/3</span>
+                  <h2>${escapeHtml(deck.title)}</h2>
+                  <p>Chọn thứ tự học cho ${deck.cards.length} từ trong bộ này.</p>
+                </div>
+                <button class="icon-btn" type="button" data-action="close-modal" title="Đóng">×</button>
+              </header>
+              <div class="modal-body">
+                <div class="feature-grid">
+                  <button class="feature-tile" data-mode="sequential">
+                    <span class="tile-kicker">Ordered</span>
+                    <span>
+                      <h3 class="tile-title">Học tuần tự</h3>
+                      <p class="tile-desc">Đi theo đúng thứ tự trong bộ flashcards.</p>
+                    </span>
+                  </button>
+                  <button class="feature-tile" data-mode="random">
+                    <span class="tile-kicker">Shuffle</span>
+                    <span>
+                      <h3 class="tile-title">Học ngẫu nhiên</h3>
+                      <p class="tile-desc">Xáo trộn thứ tự trước khi bắt đầu.</p>
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </section>
+          </div>
+        `;
+        modalRoot.onclick = (event) => {
+          const close = event.target.closest('[data-action="close-modal"]');
+          const mode = event.target.closest("[data-mode]")?.dataset.mode;
+          if (close) this.closeModal();
+          if (mode) showWordSelectionStep(mode);
+        };
+      };
+
+      const showDirectionStep = (mode, selectedIds) => {
         modalRoot.innerHTML = `
           <div class="modal-backdrop">
             <section class="modal large" role="dialog" aria-modal="true">
               <header class="modal-head">
                 <div>
+                  <span class="step-label">Bước 3/3</span>
                   <h2>${escapeHtml(deck.title)}</h2>
-                  <p>Chọn mặt trước của thẻ trong lượt học này.</p>
+                  <p>Chọn cách hiển thị cho ${selectedIds.length} từ đã chọn.</p>
                 </div>
                 <button class="icon-btn" type="button" data-action="close-modal" title="Đóng">×</button>
               </header>
@@ -501,95 +543,213 @@ function createAppView(root, modalRoot) {
                       <p class="tile-desc">Mỗi từ tự random hỏi bằng pinyin hoặc nghĩa.</p>
                     </span>
                   </button>
+                  <button class="feature-tile" data-direction="both">
+                    <span class="tile-kicker">Both</span>
+                    <span>
+                      <h3 class="tile-title">Hiện cả hai</h3>
+                      <p class="tile-desc">Mỗi thẻ hiển thị luôn pinyin và nghĩa để học nhanh.</p>
+                    </span>
+                  </button>
                 </div>
               </div>
+              <footer class="modal-foot">
+                <button class="btn ghost" type="button" data-action="back-to-word-selection">Quay lại</button>
+              </footer>
             </section>
           </div>
         `;
         modalRoot.onclick = (event) => {
+          const action = event.target.closest("[data-action]")?.dataset.action;
           const close = event.target.closest('[data-action="close-modal"]');
           const direction = event.target.closest("[data-direction]")?.dataset.direction;
           if (close) this.closeModal();
-          if (direction) onChoose(mode, direction);
+          if (action === "back-to-word-selection") showWordSelectionStep(mode, selectedIds);
+          if (direction) onChoose(mode, direction, selectedIds);
         };
       };
 
-      modalRoot.innerHTML = `
-        <div class="modal-backdrop">
-          <section class="modal" role="dialog" aria-modal="true">
-            <header class="modal-head">
-              <div>
-                <h2>${escapeHtml(deck.title)}</h2>
-                <p>${deck.cards.length} từ trong bộ này.</p>
+      const showWordSelectionStep = (mode, selectedIds = deck.cards.map((card) => card.id)) => {
+        const renderRows = () =>
+          deck.cards
+            .map(
+              (card, index) => `
+                <label class="study-select-row" data-card-id="${card.id}">
+                  <input type="checkbox" data-select-study-card ${selectedIds.includes(card.id) ? "checked" : ""} />
+                  <span class="row-index">${index + 1}</span>
+                  <strong>${escapeHtml(card.pinyin)}</strong>
+                  <span>${escapeHtml(card.meaning)}</span>
+                </label>
+              `
+            )
+            .join("");
+
+        modalRoot.innerHTML = `
+          <div class="modal-backdrop">
+            <section class="modal large" role="dialog" aria-modal="true">
+              <header class="modal-head">
+                <div>
+                  <span class="step-label">Bước 2/3</span>
+                  <h2>${escapeHtml(deck.title)}</h2>
+                  <p>Chọn những từ bạn muốn học trong lượt này.</p>
+                </div>
+                <button class="icon-btn" type="button" data-action="close-modal" title="Đóng">×</button>
+              </header>
+              <div class="modal-body">
+                <div class="list-toolbar">
+                  <div class="button-row">
+                    <button class="btn ghost" type="button" data-action="select-all-study-cards">Chọn tất cả</button>
+                    <button class="btn ghost" type="button" data-action="clear-study-cards">Bỏ chọn</button>
+                  </div>
+                  <span class="meta" data-selected-count>${selectedIds.length}/${deck.cards.length} từ đã chọn</span>
+                </div>
+                <div class="study-select-list">${renderRows()}</div>
               </div>
-              <button class="icon-btn" type="button" data-action="close-modal" title="Đóng">×</button>
-            </header>
-            <div class="modal-body">
-              <div class="feature-grid">
-                <button class="feature-tile" data-mode="sequential">
-                  <span class="tile-kicker">Ordered</span>
-                  <span>
-                    <h3 class="tile-title">Học tuần tự</h3>
-                    <p class="tile-desc">Đi theo đúng thứ tự trong bộ flashcards.</p>
-                  </span>
-                </button>
-                <button class="feature-tile" data-mode="random">
-                  <span class="tile-kicker">Shuffle</span>
-                  <span>
-                    <h3 class="tile-title">Học ngẫu nhiên</h3>
-                    <p class="tile-desc">Xáo trộn thứ tự trước khi bắt đầu.</p>
-                  </span>
-                </button>
-              </div>
-            </div>
-          </section>
-        </div>
-      `;
-      modalRoot.onclick = (event) => {
-        const close = event.target.closest('[data-action="close-modal"]');
-        const mode = event.target.closest("[data-mode]")?.dataset.mode;
-        if (close) this.closeModal();
-        if (mode) showDirectionStep(mode);
+              <footer class="modal-foot">
+                <button class="btn ghost" type="button" data-action="back-to-mode">Quay lại</button>
+                <button class="btn primary" type="button" data-action="continue-study-selection">Tiếp tục</button>
+              </footer>
+            </section>
+          </div>
+        `;
+
+        const updateSelectedCount = () => {
+          const count = modalRoot.querySelectorAll("[data-select-study-card]:checked").length;
+          const label = modalRoot.querySelector("[data-selected-count]");
+          if (label) label.textContent = `${count}/${deck.cards.length} từ đã chọn`;
+        };
+
+        modalRoot.onclick = (event) => {
+          const action = event.target.closest("[data-action]")?.dataset.action;
+          if (!action) {
+            if (event.target.matches("[data-select-study-card]")) updateSelectedCount();
+            return;
+          }
+
+          if (action === "close-modal") {
+            this.closeModal();
+          }
+
+          if (action === "back-to-mode") {
+            showModeStep();
+          }
+
+          if (action === "select-all-study-cards") {
+            modalRoot.querySelectorAll("[data-select-study-card]").forEach((input) => {
+              input.checked = true;
+            });
+            updateSelectedCount();
+          }
+
+          if (action === "clear-study-cards") {
+            modalRoot.querySelectorAll("[data-select-study-card]").forEach((input) => {
+              input.checked = false;
+            });
+            updateSelectedCount();
+          }
+
+          if (action === "continue-study-selection") {
+            const selectedIds = Array.from(modalRoot.querySelectorAll("[data-select-study-card]:checked")).map(
+              (input) => input.closest("[data-card-id]").dataset.cardId
+            );
+            if (!selectedIds.length) {
+              this.alert("Chọn ít nhất 1 từ để học.");
+              return;
+            }
+            showDirectionStep(mode, selectedIds);
+          }
+        };
       };
+
+      showModeStep();
     },
 
     showQuizChoice(deck, onChoose) {
+      const renderRows = () =>
+        deck.cards
+          .map(
+            (card, index) => `
+              <label class="study-select-row" data-card-id="${card.id}">
+                <input type="checkbox" data-select-quiz-card checked />
+                <span class="row-index">${index + 1}</span>
+                <strong>${escapeHtml(card.pinyin)}</strong>
+                <span>${escapeHtml(card.meaning)}</span>
+              </label>
+            `
+          )
+          .join("");
+
       modalRoot.innerHTML = `
         <div class="modal-backdrop">
-          <section class="modal" role="dialog" aria-modal="true">
+          <section class="modal large" role="dialog" aria-modal="true">
             <header class="modal-head">
               <div>
                 <h2>${escapeHtml(deck.title)}</h2>
-                <p>${deck.cards.length} câu trắc nghiệm trong bộ này.</p>
+                <p>Chọn câu muốn kiểm tra. Có thể xáo trộn thứ tự câu hỏi và đáp án.</p>
               </div>
               <button class="icon-btn" type="button" data-action="close-modal" title="Đóng">×</button>
             </header>
             <div class="modal-body">
-              <div class="feature-grid">
-                <button class="feature-tile" data-mode="sequential">
-                  <span class="tile-kicker">Ordered</span>
-                  <span>
-                    <h3 class="tile-title">Làm tuần tự</h3>
-                    <p class="tile-desc">Đi theo đúng thứ tự từ vựng trong bộ.</p>
-                  </span>
-                </button>
-                <button class="feature-tile" data-mode="random">
-                  <span class="tile-kicker">Shuffle</span>
-                  <span>
-                    <h3 class="tile-title">Làm ngẫu nhiên</h3>
-                    <p class="tile-desc">Xáo trộn thứ tự câu hỏi trước khi bắt đầu.</p>
-                  </span>
-                </button>
+              <div class="list-toolbar">
+                <div class="button-row">
+                  <button class="btn ghost" type="button" data-action="select-all-quiz-cards">Chọn tất cả</button>
+                  <button class="btn ghost" type="button" data-action="clear-quiz-cards">Bỏ chọn</button>
+                </div>
+                <span class="meta" data-selected-count>${deck.cards.length}/${deck.cards.length} câu đã chọn</span>
               </div>
+              <label class="toggle-row">
+                <input type="checkbox" data-randomize-quiz checked />
+                <span>Ngẫu nhiên thứ tự câu hỏi và đáp án</span>
+              </label>
+              <div class="study-select-list">${renderRows()}</div>
             </div>
+            <footer class="modal-foot">
+              <button class="btn ghost" type="button" data-action="close-modal">Đóng</button>
+              <button class="btn primary" type="button" data-action="start-quiz-selection">Bắt đầu</button>
+            </footer>
           </section>
         </div>
       `;
+
+      const updateSelectedCount = () => {
+        const checked = modalRoot.querySelectorAll("[data-select-quiz-card]:checked").length;
+        const label = modalRoot.querySelector("[data-selected-count]");
+        if (label) label.textContent = `${checked}/${deck.cards.length} câu đã chọn`;
+      };
+
       modalRoot.onclick = (event) => {
-        const close = event.target.closest('[data-action="close-modal"]');
-        const mode = event.target.closest("[data-mode]")?.dataset.mode;
-        if (close) this.closeModal();
-        if (mode) onChoose(mode);
+        const action = event.target.closest("[data-action]")?.dataset.action;
+        if (!action) {
+          if (event.target.matches("[data-select-quiz-card]")) updateSelectedCount();
+          return;
+        }
+
+        if (action === "close-modal") this.closeModal();
+
+        if (action === "select-all-quiz-cards") {
+          modalRoot.querySelectorAll("[data-select-quiz-card]").forEach((input) => {
+            input.checked = true;
+          });
+          updateSelectedCount();
+        }
+
+        if (action === "clear-quiz-cards") {
+          modalRoot.querySelectorAll("[data-select-quiz-card]").forEach((input) => {
+            input.checked = false;
+          });
+          updateSelectedCount();
+        }
+
+        if (action === "start-quiz-selection") {
+          const selectedIds = Array.from(modalRoot.querySelectorAll("[data-select-quiz-card]:checked")).map(
+            (input) => input.closest("[data-card-id]").dataset.cardId
+          );
+          if (!selectedIds.length) {
+            this.alert("Chọn ít nhất 1 câu để làm.");
+            return;
+          }
+          const randomize = modalRoot.querySelector("[data-randomize-quiz]").checked;
+          onChoose(selectedIds, randomize);
+        }
       };
     },
 
@@ -694,10 +854,11 @@ function createAppView(root, modalRoot) {
       };
     },
 
-    renderStudySession({ deck, cards, index, revealed, answers, onReveal, onAnswer, onExit }) {
+    renderStudySession({ deck, cards, index, revealed, answers, reviewOnly, onReveal, onAnswer, onNext, onExit }) {
       const card = cards[index];
       const correct = answers.filter((item) => item.correct).length;
       const wrong = answers.length - correct;
+      const showAnswer = revealed || card.showBoth;
       modalRoot.innerHTML = `
         <div class="modal-backdrop">
           <section class="modal large" role="dialog" aria-modal="true">
@@ -711,14 +872,14 @@ function createAppView(root, modalRoot) {
             <div class="modal-body">
               <div class="progress-line">
                 <span>Câu ${index + 1}/${cards.length}</span>
-                <span>Đúng ${correct} · Sai ${wrong}</span>
+                <span>${reviewOnly ? "Chế độ xem nhanh" : `Đúng ${correct} · Sai ${wrong}`}</span>
               </div>
               <div class="learn-card">
                 <div>
                   <span class="study-label">${escapeHtml(card.promptLabel)}</span>
                   <p class="prompt-text">${escapeHtml(card.prompt)}</p>
                   ${
-                    revealed
+                    showAnswer
                       ? `<span class="study-label answer-label">${escapeHtml(card.answerLabel)}</span>
                          <p class="meaning">${escapeHtml(card.answer)}</p>`
                       : ""
@@ -726,7 +887,11 @@ function createAppView(root, modalRoot) {
                 </div>
               </div>
               ${
-                revealed
+                reviewOnly
+                  ? `<button class="btn primary" data-action="next-card" style="width:100%; margin-top:14px;">
+                      ${index + 1 >= cards.length ? "Hoàn thành" : "Tiếp tục"}
+                    </button>`
+                  : showAnswer
                   ? `<div class="answer-actions">
                       <button class="btn danger" data-answer="wrong">Sai</button>
                       <button class="btn primary" data-answer="correct">Đúng</button>
@@ -740,8 +905,36 @@ function createAppView(root, modalRoot) {
       modalRoot.onclick = (event) => {
         if (event.target.closest('[data-action="exit"]')) onExit();
         if (event.target.closest('[data-action="reveal"]')) onReveal();
+        if (event.target.closest('[data-action="next-card"]')) onNext();
         const answer = event.target.closest("[data-answer]")?.dataset.answer;
         if (answer) onAnswer(answer === "correct");
+      };
+    },
+
+    renderStudyComplete({ deck, total, onRestart, onClose }) {
+      modalRoot.innerHTML = `
+        <div class="modal-backdrop">
+          <section class="modal" role="dialog" aria-modal="true">
+            <header class="modal-head">
+              <div>
+                <h2>Hoàn thành: ${escapeHtml(deck.title)}</h2>
+                <p>Bạn đã xem hết ${total} thẻ trong lượt học này.</p>
+              </div>
+              <button class="icon-btn" type="button" data-action="close" title="Đóng">×</button>
+            </header>
+            <div class="modal-body">
+              <div class="empty-state">Chế độ hiện cả hai không chấm Đúng/Sai.</div>
+            </div>
+            <footer class="modal-foot">
+              <button class="btn ghost" type="button" data-action="close">Đóng</button>
+              <button class="btn primary" type="button" data-action="restart">Học lại</button>
+            </footer>
+          </section>
+        </div>
+      `;
+      modalRoot.onclick = (event) => {
+        if (event.target.closest('[data-action="restart"]')) onRestart();
+        if (event.target.closest('[data-action="close"]')) onClose();
       };
     },
 

@@ -203,7 +203,7 @@ button {
 }
 
 .feature-grid.three {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
 .toolbar {
@@ -363,6 +363,18 @@ button {
   font-size: 1.2rem;
 }
 
+.step-label {
+  display: inline-flex;
+  margin-bottom: 7px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  padding: 5px 9px;
+  color: var(--primary);
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
 .modal-head p {
   margin: 6px 0 0;
   color: var(--muted);
@@ -456,6 +468,68 @@ button {
 .vocab-list {
   display: grid;
   gap: 8px;
+}
+
+.study-select-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.study-select-row {
+  display: grid;
+  grid-template-columns: 34px 42px minmax(130px, 0.9fr) minmax(160px, 1.2fr);
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfb;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.study-select-row:hover {
+  border-color: rgba(22, 115, 107, 0.38);
+  background: var(--surface-2);
+}
+
+.study-select-row:has(input:checked) {
+  border-color: rgba(22, 115, 107, 0.48);
+  background: #eef8f4;
+}
+
+.study-select-row input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+}
+
+.study-select-row strong {
+  overflow-wrap: anywhere;
+}
+
+.study-select-row span:last-child {
+  color: var(--muted);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  margin-top: 12px;
+  padding: 12px;
+  font-weight: 750;
+}
+
+.toggle-row input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
 }
 
 .vocab-row {
@@ -684,7 +758,8 @@ button {
   }
 
   .quick-add,
-  .vocab-row {
+  .vocab-row,
+  .study-select-row {
     grid-template-columns: 1fr;
   }
 
@@ -880,8 +955,14 @@ button {
     padding: 12px;
   }
 
+  .study-select-row {
+    gap: 8px;
+    padding: 12px;
+  }
+
   .vocab-row .check-cell,
-  .vocab-row .row-index {
+  .vocab-row .row-index,
+  .study-select-row .row-index {
     display: inline-flex;
     align-items: center;
   }

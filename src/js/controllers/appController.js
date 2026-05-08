@@ -58,18 +58,46 @@ function buildStudyCards(cards, direction) {
   });
 }
 
-function buildQuizQuestions(questionCards, randomize, optionPool) {
+function getQuizShape(quizType) {
+  if (quizType === "meaning-question") {
+    return {
+      promptField: "meaning",
+      answerField: "pinyin",
+      promptLabel: "Nghĩa",
+      answerLabel: "Pinyin"
+    };
+  }
+
+  return {
+    promptField: "pinyin",
+    answerField: "meaning",
+    promptLabel: "Pinyin",
+    answerLabel: "Nghĩa"
+  };
+}
+
+function buildQuizQuestions(questionCards, randomize, optionPool, quizType) {
+  const shape = getQuizShape(quizType);
   const source = randomize ? shuffle(questionCards) : [...questionCards];
   return source.map((card) => {
+    const correctAnswer = card[shape.answerField];
     const distractors = shuffle(
-      Array.from(new Set(optionPool.filter((item) => item.id !== card.id).map((item) => item.meaning)))
+      Array.from(
+        new Set(
+          optionPool
+            .filter((item) => item.id !== card.id && item[shape.answerField] !== correctAnswer)
+            .map((item) => item[shape.answerField])
+        )
+      )
     ).slice(0, 3);
-    const options = randomize ? shuffle([card.meaning, ...distractors]) : [card.meaning, ...distractors];
+    const options = randomize ? shuffle([correctAnswer, ...distractors]) : [correctAnswer, ...distractors];
 
     return {
       card,
-      prompt: card.pinyin,
-      correctAnswer: card.meaning,
+      prompt: card[shape.promptField],
+      promptLabel: shape.promptLabel,
+      answerLabel: shape.answerLabel,
+      correctAnswer,
       options
     };
   });
@@ -227,10 +255,11 @@ function createController({ store, view }) {
     });
   }
 
-  function startQuiz(deck, selectedIds = null, randomize = true) {
-    const uniqueMeanings = new Set(deck.cards.map((card) => card.meaning));
-    if (deck.cards.length < 4 || uniqueMeanings.size < 4) {
-      view.alert("Cần ít nhất 4 từ có nghĩa khác nhau trong bộ để tạo trắc nghiệm 4 đáp án.");
+  function startQuiz(deck, selectedIds = null, randomize = true, quizType = "pinyin-question") {
+    const quizShape = getQuizShape(quizType);
+    const uniqueAnswers = new Set(deck.cards.map((card) => card[quizShape.answerField]));
+    if (deck.cards.length < 4 || uniqueAnswers.size < 4) {
+      view.alert(`Cần ít nhất 4 ${quizShape.answerLabel.toLowerCase()} khác nhau trong bộ để tạo trắc nghiệm 4 đáp án.`);
       return;
     }
 
@@ -247,7 +276,8 @@ function createController({ store, view }) {
       deck,
       selectedIds,
       randomize,
-      questions: buildQuizQuestions(selectedCards, randomize, deck.cards),
+      quizType,
+      questions: buildQuizQuestions(selectedCards, randomize, deck.cards, quizType),
       index: 0,
       answers: []
     };
@@ -284,7 +314,7 @@ function createController({ store, view }) {
       deck: completed.deck,
       answers: completed.answers,
       onRestart() {
-        startQuiz(completed.deck, completed.selectedIds, completed.randomize);
+        startQuiz(completed.deck, completed.selectedIds, completed.randomize, completed.quizType);
       },
       onClose() {
         activeQuiz = null;
@@ -341,7 +371,7 @@ function createController({ store, view }) {
         view.alert("Bộ này chưa có từ nào để kiểm tra.");
         return;
       }
-      view.showQuizChoice(deck, (selectedIds, randomize) => startQuiz(deck, selectedIds, randomize));
+      view.showQuizChoice(deck, (selectedIds, randomize, quizType) => startQuiz(deck, selectedIds, randomize, quizType));
     }
 
     if (action === "export-json") {

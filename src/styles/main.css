@@ -532,6 +532,16 @@ button {
   accent-color: var(--primary);
 }
 
+.option-toggle-group {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.option-toggle-group .toggle-row {
+  margin-top: 0;
+}
+
 .vocab-row {
   display: grid;
   grid-template-columns: 34px 42px minmax(130px, 0.9fr) minmax(160px, 1.2fr) auto;

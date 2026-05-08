@@ -123,7 +123,7 @@ function createAppView(root, modalRoot) {
             <span class="tile-kicker">Quiz</span>
             <span>
               <h2 class="tile-title">Trắc nghiệm</h2>
-              <p class="tile-desc">Chọn nghĩa đúng cho pinyin với 4 đáp án.</p>
+              <p class="tile-desc">Làm trắc nghiệm pinyin hoặc nghĩa với 4 đáp án.</p>
             </span>
             <span class="arrow">Kiểm tra</span>
           </a>
@@ -132,12 +132,17 @@ function createAppView(root, modalRoot) {
     },
 
     renderQuizPage({ decks }) {
-      const usableDecks = decks.filter((deck) => deck.cards.length >= 4 && new Set(deck.cards.map((card) => card.meaning)).size >= 4);
+      const usableDecks = decks.filter(
+        (deck) =>
+          deck.cards.length >= 4 &&
+          (new Set(deck.cards.map((card) => card.meaning)).size >= 4 ||
+            new Set(deck.cards.map((card) => card.pinyin)).size >= 4)
+      );
       this.renderLayout(`
         <section class="section-head">
           <div>
             <h1>Trắc nghiệm</h1>
-            <p>Câu hỏi lấy từ pinyin. Mỗi câu có 1 nghĩa đúng và 3 đáp án nhiễu từ cùng bộ.</p>
+            <p>Chọn kiểu câu hỏi là pinyin hoặc nghĩa. Mỗi câu có 1 đáp án đúng và 3 đáp án nhiễu từ cùng bộ.</p>
           </div>
         </section>
         ${
@@ -164,7 +169,7 @@ function createAppView(root, modalRoot) {
                   )
                   .join("")}
               </section>`
-            : `<div class="empty-state">Cần ít nhất 4 từ trong một bộ để tạo trắc nghiệm.</div>`
+            : `<div class="empty-state">Cần ít nhất 4 từ có đáp án khác nhau trong một bộ để tạo trắc nghiệm.</div>`
         }
       `);
     },
@@ -700,6 +705,16 @@ function createAppView(root, modalRoot) {
                 <input type="checkbox" data-randomize-quiz checked />
                 <span>Ngẫu nhiên thứ tự câu hỏi và đáp án</span>
               </label>
+              <div class="option-toggle-group" aria-label="Kiểu câu hỏi">
+                <label class="toggle-row">
+                  <input type="radio" name="quizType" value="pinyin-question" checked />
+                  <span>Pinyin là câu hỏi, chọn nghĩa đúng</span>
+                </label>
+                <label class="toggle-row">
+                  <input type="radio" name="quizType" value="meaning-question" />
+                  <span>Nghĩa là câu hỏi, chọn pinyin đúng</span>
+                </label>
+              </div>
               <div class="study-select-list">${renderRows()}</div>
             </div>
             <footer class="modal-foot">
@@ -748,7 +763,8 @@ function createAppView(root, modalRoot) {
             return;
           }
           const randomize = modalRoot.querySelector("[data-randomize-quiz]").checked;
-          onChoose(selectedIds, randomize);
+          const quizType = modalRoot.querySelector('input[name="quizType"]:checked')?.value || "pinyin-question";
+          onChoose(selectedIds, randomize, quizType);
         }
       };
     },
@@ -762,7 +778,9 @@ function createAppView(root, modalRoot) {
             <header class="modal-head">
               <div>
                 <h2>${escapeHtml(deck.title)}</h2>
-                <p>Chọn nghĩa đúng cho pinyin.</p>
+                <p>Chọn ${escapeHtml(question.answerLabel.toLowerCase())} đúng cho ${escapeHtml(
+                  question.promptLabel.toLowerCase()
+                )}.</p>
               </div>
               <button class="icon-btn" type="button" data-action="exit" title="Thoát">×</button>
             </header>
@@ -773,7 +791,7 @@ function createAppView(root, modalRoot) {
               </div>
               <div class="learn-card quiz-card">
                 <div>
-                  <span class="study-label">Pinyin</span>
+                  <span class="study-label">${escapeHtml(question.promptLabel)}</span>
                   <p class="prompt-text">${escapeHtml(question.prompt)}</p>
                 </div>
               </div>
@@ -830,9 +848,11 @@ function createAppView(root, modalRoot) {
                         .map(
                           (item) => `
                             <div class="wrong-item">
-                              <strong>Pinyin: ${escapeHtml(item.question.prompt)}</strong>
-                              <div>Bạn chọn: ${escapeHtml(item.selectedAnswer)}</div>
-                              <div>Đáp án đúng: ${escapeHtml(item.question.correctAnswer)}</div>
+                              <strong>${escapeHtml(item.question.promptLabel)}: ${escapeHtml(item.question.prompt)}</strong>
+                              <div>Bạn chọn (${escapeHtml(item.question.answerLabel)}): ${escapeHtml(item.selectedAnswer)}</div>
+                              <div>Đáp án đúng (${escapeHtml(item.question.answerLabel)}): ${escapeHtml(
+                                item.question.correctAnswer
+                              )}</div>
                             </div>
                           `
                         )

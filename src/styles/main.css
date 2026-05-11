@@ -323,12 +323,13 @@ button {
 
 .app-alert-root {
   position: fixed;
-  right: 18px;
-  bottom: 18px;
+  top: 50%;
+  left: 50%;
   z-index: 50;
   display: grid;
   width: min(420px, calc(100vw - 32px));
   gap: 10px;
+  transform: translate(-50%, -50%);
   pointer-events: none;
 }
 
@@ -348,48 +349,65 @@ button {
 }
 
 .app-confirm {
-  width: min(420px, 100%);
+  position: relative;
+  width: min(390px, 100%);
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
   box-shadow: var(--shadow);
 }
 
-.app-confirm-head {
-  display: grid;
-  grid-template-columns: 38px 1fr;
-  gap: 12px;
-  padding: 18px;
+.app-confirm-close-row {
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 10px 0;
 }
 
-.app-confirm-icon {
+.app-confirm-close {
   display: grid;
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   place-items: center;
-  border-radius: 999px;
-  background: #fff0ed;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.app-confirm-close:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.app-confirm-close svg {
+  width: 20px;
+  height: 20px;
+}
+
+.app-confirm-body {
+  padding: 0 24px 24px;
+  text-align: center;
+}
+
+.app-confirm-warning {
+  width: 76px;
+  height: 76px;
+  margin: 0 auto 18px;
   color: var(--danger);
-  font-weight: 900;
 }
 
 .app-confirm h2 {
-  margin: 0;
-  font-size: 1.1rem;
-}
-
-.app-confirm p {
-  margin: 6px 0 0;
+  margin: 0 0 22px;
   color: var(--muted);
-  line-height: 1.5;
+  font-size: 1.2rem;
+  font-weight: 500;
+  line-height: 1.45;
 }
 
-.app-confirm-foot {
+.app-confirm-actions {
   display: flex;
-  justify-content: flex-end;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 8px;
-  border-top: 1px solid var(--line);
-  padding: 14px 18px;
 }
 
 .app-alert {
@@ -470,18 +488,18 @@ button {
 @keyframes alert-in {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(10px) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
 @keyframes alert-out {
   to {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(10px) scale(0.98);
   }
 }
 
@@ -1365,8 +1383,6 @@ button {
   }
 
   .app-alert-root {
-    right: 9px;
-    bottom: 9px;
     width: calc(100vw - 18px);
   }
 
@@ -1380,7 +1396,7 @@ button {
     border-radius: 8px 8px 0 0;
   }
 
-  .app-confirm-foot .btn {
+  .app-confirm-actions .btn {
     flex: 1 1 auto;
   }
 

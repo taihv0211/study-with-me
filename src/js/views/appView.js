@@ -112,7 +112,7 @@ function getAlertType(message) {
   return "success";
 }
 
-function showAppAlert(message) {
+function showAppAlert(message, forcedType = null) {
   let alertRoot = document.querySelector("[data-app-alert-root]");
   if (!alertRoot) {
     alertRoot = document.createElement("div");
@@ -121,7 +121,7 @@ function showAppAlert(message) {
     document.body.appendChild(alertRoot);
   }
 
-  const type = getAlertType(message);
+  const type = forcedType || getAlertType(message);
   const alert = document.createElement("div");
   alert.className = `app-alert ${type}`;
   alert.setAttribute("role", "status");
@@ -147,17 +147,23 @@ function showAppConfirm(message) {
     backdrop.className = "app-confirm-backdrop";
     backdrop.innerHTML = `
       <section class="app-confirm" role="dialog" aria-modal="true">
-        <header class="app-confirm-head">
-          <span class="app-confirm-icon">?</span>
-          <div>
-            <h2>Xác nhận</h2>
-            <p>${escapeHtml(message)}</p>
+        <div class="app-confirm-close-row">
+          <button class="app-confirm-close" type="button" data-confirm="cancel" aria-label="Đóng">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" />
+            </svg>
+          </button>
+        </div>
+        <div class="app-confirm-body">
+          <svg class="app-confirm-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path>
+          </svg>
+          <h2>${escapeHtml(message)}</h2>
+          <div class="app-confirm-actions">
+            <button class="btn danger" type="button" data-confirm="ok">Xóa</button>
+            <button class="btn ghost" type="button" data-confirm="cancel">Hủy</button>
           </div>
-        </header>
-        <footer class="app-confirm-foot">
-          <button class="btn ghost" type="button" data-confirm="cancel">Hủy</button>
-          <button class="btn danger" type="button" data-confirm="ok">Xóa</button>
-        </footer>
+        </div>
       </section>
     `;
 
@@ -1577,8 +1583,8 @@ function createAppView(root, modalRoot) {
       modalRoot.onchange = null;
     },
 
-    alert(message) {
-      showAppAlert(message);
+    alert(message, type = null) {
+      showAppAlert(message, type);
     },
 
     confirm(message) {

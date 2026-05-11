@@ -510,6 +510,10 @@ function createController({ store, view }) {
     }
 
     if (action === "save-writing-items") {
+      if (!hasWritingChanges()) {
+        view.alert("Không có thay đổi để lưu.", "warning");
+        return;
+      }
       const originalText = target.textContent;
       target.disabled = true;
       target.textContent = "Đang lưu...";
@@ -517,9 +521,9 @@ function createController({ store, view }) {
         const saved = await store.saveWritingItems(getWritingDraftItems());
         writingDraftItems = saved;
         render();
-        view.alert("Đã lưu danh sách luyện viết.");
+        window.setTimeout(() => view.alert("Đã lưu danh sách luyện viết.", "success"), 0);
       } catch (error) {
-        view.alert(error.message);
+        view.alert(error.message, "error");
       } finally {
         if (target.isConnected) {
           target.disabled = false;

@@ -11,6 +11,100 @@ function tagText(tags) {
   return tags?.length ? tags.join(", ") : "Chưa có tag";
 }
 
+function cardKey(card) {
+  return `${String(card.pinyin || "").trim().toLowerCase()}|||${String(card.meaning || "").trim().toLowerCase()}`;
+}
+
+function parseImportedCards(jsonText, existingCards, createCard) {
+  let parsed;
+  try {
+    parsed = JSON.parse(jsonText);
+  } catch {
+    throw new Error("File import phải là JSON hợp lệ.");
+  }
+
+  const rawCards = Array.isArray(parsed) ? parsed : parsed.cards || parsed.questions;
+  if (!Array.isArray(rawCards)) {
+    throw new Error('JSON phải là mảng từ vựng hoặc object có field "cards"/"questions".');
+  }
+  if (!rawCards.length) {
+    throw new Error("File import không có từ vựng nào.");
+  }
+  if (rawCards.length > 1000) {
+    throw new Error("Mỗi lần chỉ nên import tối đa 1000 từ để tránh lỗi trình duyệt hoặc Google Sheets.");
+  }
+
+  const invalidRows = [];
+  const existingKeys = new Set(existingCards.map(cardKey));
+  const importKeys = new Set();
+  const cards = [];
+  let skippedDuplicates = 0;
+
+  rawCards.forEach((item, index) => {
+    const rowNumber = index + 1;
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      invalidRows.push(`Dòng ${rowNumber}: phải là object.`);
+      return;
+    }
+
+    const pinyin = String(item.pinyin || item.term || item.question || "").trim();
+    const meaning = String(item.meaning || item.answer || "").trim();
+    if (!pinyin || !meaning) {
+      invalidRows.push(`Dòng ${rowNumber}: thiếu pinyin hoặc meaning.`);
+      return;
+    }
+    if (pinyin.length > 120) {
+      invalidRows.push(`Dòng ${rowNumber}: pinyin quá dài, tối đa 120 ký tự.`);
+      return;
+    }
+    if (meaning.length > 300) {
+      invalidRows.push(`Dòng ${rowNumber}: nghĩa quá dài, tối đa 300 ký tự.`);
+      return;
+    }
+
+    const key = cardKey({ pinyin, meaning });
+    if (existingKeys.has(key) || importKeys.has(key)) {
+      skippedDuplicates += 1;
+      return;
+    }
+
+    importKeys.add(key);
+    cards.push({
+      ...createCard(),
+      pinyin,
+      meaning
+    });
+  });
+
+  if (invalidRows.length) {
+    const preview = invalidRows.slice(0, 5).join("\n");
+    const suffix = invalidRows.length > 5 ? `\n... và ${invalidRows.length - 5} lỗi khác.` : "";
+    throw new Error(`File import có dữ liệu không hợp lệ:\n${preview}${suffix}`);
+  }
+
+  if (!cards.length) {
+    throw new Error(
+      skippedDuplicates
+        ? "Không có từ mới để import vì toàn bộ dữ liệu bị trùng."
+        : "Không có từ mới hợp lệ để import."
+    );
+  }
+
+  return { cards, skippedDuplicates };
+}
+
+function downloadTextFile(filename, content, type = "application/json") {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 async function runWithButtonLoading(button, loadingText, task) {
   if (!button || button.disabled) return;
 
@@ -331,12 +425,15 @@ function createAppView(root, modalRoot) {
               </form>
               <div class="list-toolbar">
                 <div class="button-row">
+                  <button class="btn ghost" type="button" data-action="import-vocab-file">Import JSON</button>
+                  <button class="btn ghost" type="button" data-action="download-vocab-template">Tải file mẫu</button>
                   <button class="btn ghost" type="button" data-action="select-all-cards">Chọn tất cả</button>
                   <button class="btn ghost" type="button" data-action="clear-selected-cards">Bỏ chọn</button>
                   <button class="btn danger" type="button" data-action="bulk-delete-cards">Xóa đã chọn</button>
                 </div>
                 <span class="meta">${deck.cards.length} từ</span>
               </div>
+              <input class="hidden" type="file" accept=".json,application/json" data-import-vocab-file />
               <div class="vocab-list">${renderRows()}</div>
             </div>
             <footer class="modal-foot">
@@ -347,8 +444,42 @@ function createAppView(root, modalRoot) {
         </div>
       `;
 
-      const saveAndRefresh = (nextDeck = deck) => {
-        return onSave(nextDeck);
+      const saveAndRefresh = (nextDeck = deck, options = {}) => {
+        return onSave(nextDeck, options);
+      };
+
+      modalRoot.onchange = async (event) => {
+        if (!event.target.matches("[data-import-vocab-file]")) return;
+        const file = event.target.files?.[0];
+        event.target.value = "";
+        if (!file) return;
+        if (!file.name.toLowerCase().endsWith(".json")) {
+          this.alert("Chỉ hỗ trợ import file .json.");
+          return;
+        }
+        if (file.size > 1024 * 1024) {
+          this.alert("File import quá lớn. Giới hạn hiện tại là 1MB.");
+          return;
+        }
+
+        let previousCards = null;
+        try {
+          const text = await file.text();
+          const result = parseImportedCards(text, deck.cards, createCard);
+          previousCards = [...deck.cards];
+          deck.cards = [...deck.cards, ...result.cards];
+          await saveAndRefresh(deck, { keepOpen: true });
+          const duplicateText = result.skippedDuplicates
+            ? ` Bỏ qua ${result.skippedDuplicates} dòng trùng.`
+            : "";
+          this.alert(`Đã import và lưu ${result.cards.length} từ mới vào bộ "${deck.title || "Bộ mới"}".${duplicateText}`);
+          this.showVocabularyManager({ deck, createCard, onSave });
+        } catch (error) {
+          if (previousCards) {
+            deck.cards = previousCards;
+          }
+          this.alert(error.message);
+        }
       };
 
       modalRoot.onclick = async (event) => {
@@ -369,6 +500,21 @@ function createAppView(root, modalRoot) {
             meaning: formData.get("meaning")
           });
           this.showVocabularyManager({ deck, createCard, onSave });
+        }
+
+        if (action === "import-vocab-file") {
+          modalRoot.querySelector("[data-import-vocab-file]")?.click();
+        }
+
+        if (action === "download-vocab-template") {
+          const sample = {
+            cards: [
+              { pinyin: "di di", meaning: "em trai" },
+              { pinyin: "jie jie", meaning: "chị gái" },
+              { pinyin: "peng you", meaning: "bạn bè" }
+            ]
+          };
+          downloadTextFile("flashcard-import-template.json", JSON.stringify(sample, null, 2));
         }
 
         if (action === "edit-card") {
@@ -1047,6 +1193,7 @@ function createAppView(root, modalRoot) {
     closeModal() {
       modalRoot.innerHTML = "";
       modalRoot.onclick = null;
+      modalRoot.onchange = null;
     },
 
     alert(message) {

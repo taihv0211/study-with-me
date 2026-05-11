@@ -157,14 +157,21 @@ function createController({ store, view }) {
     view.showVocabularyManager({
       deck,
       createCard: store.createEmptyCard,
-      async onSave(input) {
+      async onSave(input, options = {}) {
         try {
           const saved = await store.saveDeck(input);
-          view.closeModal();
           render();
-          view.alert(`Đã lưu từ vựng cho bộ "${saved.title}".`);
+          if (!options.keepOpen) {
+            view.closeModal();
+            view.alert(`Đã lưu từ vựng cho bộ "${saved.title}".`);
+          }
+          return saved;
         } catch (error) {
+          if (options.keepOpen) {
+            throw error;
+          }
           view.alert(error.message);
+          return null;
         }
       }
     });

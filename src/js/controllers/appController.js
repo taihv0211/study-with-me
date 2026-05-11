@@ -103,10 +103,35 @@ function buildQuizQuestions(questionCards, randomize, optionPool, quizType) {
   });
 }
 
+function buildWritingStudyCards(items, mode) {
+  return items.map((item) => {
+    if (mode === "hanzi-first") {
+      return {
+        item,
+        prompt: item.hanzi,
+        promptLabel: "Chữ Trung",
+        answers: [
+          { label: "Pinyin", value: item.pinyin },
+          { label: "Nghĩa", value: item.meaning || "Chưa nhập nghĩa" }
+        ]
+      };
+    }
+
+    return {
+      item,
+      prompt: [item.pinyin, item.meaning].filter(Boolean).join(" - "),
+      promptLabel: "Pinyin + Nghĩa",
+      answers: [{ label: "Chữ Trung", value: item.hanzi }],
+      practiceBeforeReveal: true
+    };
+  });
+}
+
 function createController({ store, view }) {
   let deckQuery = "";
   let activeSession = null;
   let activeQuiz = null;
+  let activeWritingStudy = null;
 
   function render() {
     const route = window.location.hash || "#/";
@@ -124,6 +149,10 @@ function createController({ store, view }) {
     }
     if (route === "#/chinese/quiz") {
       view.renderQuizPage({ decks: store.getDecks() });
+      return;
+    }
+    if (route === "#/chinese/writing") {
+      view.renderWritingPage({ items: store.getWritingItems(), syncStatus: store.getSyncStatus() });
       return;
     }
     if (route === "#/english") {
@@ -330,6 +359,56 @@ function createController({ store, view }) {
     });
   }
 
+  function startWritingStudy(mode) {
+    const items = store.getWritingItems();
+    if (!items.length) {
+      view.alert("Chưa có từ nào để học mặt chữ.");
+      return;
+    }
+
+    activeWritingStudy = {
+      mode,
+      cards: buildWritingStudyCards(items, mode),
+      index: 0,
+      revealed: false
+    };
+    renderWritingStudy();
+  }
+
+  function renderWritingStudy() {
+    view.renderWritingStudy({
+      ...activeWritingStudy,
+      onReveal() {
+        activeWritingStudy.revealed = true;
+        renderWritingStudy();
+      },
+      onNext() {
+        activeWritingStudy.index += 1;
+        activeWritingStudy.revealed = false;
+        if (activeWritingStudy.index >= activeWritingStudy.cards.length) {
+          const completedMode = activeWritingStudy.mode;
+          const completedTotal = activeWritingStudy.cards.length;
+          view.renderWritingStudyComplete({
+            total: completedTotal,
+            onRestart() {
+              startWritingStudy(completedMode);
+            },
+            onClose() {
+              activeWritingStudy = null;
+              view.closeModal();
+            }
+          });
+          return;
+        }
+        renderWritingStudy();
+      },
+      onExit() {
+        activeWritingStudy = null;
+        view.closeModal();
+      }
+    });
+  }
+
   async function handleClick(event) {
     const target = event.target.closest("[data-action]");
     if (!target) return;
@@ -379,6 +458,52 @@ function createController({ store, view }) {
         return;
       }
       view.showQuizChoice(deck, (selectedIds, randomize, quizType) => startQuiz(deck, selectedIds, randomize, quizType));
+    }
+
+    if (action === "add-writing-item") {
+      const form = document.querySelector('[data-form="writing-item"]');
+      if (!form?.reportValidity()) return;
+      const formData = new FormData(form);
+      try {
+        await store.saveWritingItem({
+          ...store.createEmptyWritingItem(),
+          pinyin: formData.get("pinyin"),
+          hanzi: formData.get("hanzi"),
+          meaning: formData.get("meaning")
+        });
+        render();
+      } catch (error) {
+        view.alert(error.message);
+      }
+    }
+
+    if (action === "choose-writing-study") {
+      const items = store.getWritingItems();
+      if (!items.length) {
+        view.alert("Chưa có từ nào để học mặt chữ.");
+        return;
+      }
+      view.showWritingStudyChoice((mode) => startWritingStudy(mode));
+    }
+
+    if (action === "delete-writing-item") {
+      if (!view.confirm("Xóa từ luyện viết này?")) return;
+      try {
+        await store.deleteWritingItem(id);
+        render();
+      } catch (error) {
+        view.alert(error.message);
+      }
+    }
+
+    if (action === "clear-writing") {
+      Array.from(document.querySelectorAll("[data-writing-canvas]"))
+        .find((canvas) => canvas.dataset.id === id)
+        ?.clearWriting();
+    }
+
+    if (action === "clear-all-writing") {
+      document.querySelectorAll("[data-writing-canvas]").forEach((canvas) => canvas.clearWriting());
     }
 
     if (action === "export-json") {

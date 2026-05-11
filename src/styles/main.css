@@ -344,6 +344,10 @@ button {
   width: min(940px, 100%);
 }
 
+.modal.xlarge {
+  width: min(1120px, 100%);
+}
+
 .modal-head,
 .modal-body,
 .modal-foot {
@@ -456,6 +460,12 @@ button {
   border-radius: 8px;
   background: var(--surface);
   padding: 14px;
+}
+
+.quick-add.writing-add {
+  position: static;
+  grid-template-columns: minmax(110px, 0.8fr) minmax(110px, 0.8fr) minmax(140px, 1fr) auto;
+  margin-bottom: 14px;
 }
 
 .list-toolbar {
@@ -740,6 +750,121 @@ button {
   padding: 12px;
 }
 
+.writing-board {
+  display: grid;
+  gap: 14px;
+}
+
+.writing-list {
+  display: grid;
+  gap: 12px;
+}
+
+.writing-row {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.9fr) minmax(320px, 1.1fr);
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfb;
+  padding: 14px;
+}
+
+.writing-reference {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 10px;
+  align-content: start;
+}
+
+.writing-reference > div {
+  grid-column: 2;
+}
+
+.writing-reference .row-index {
+  grid-row: 1 / span 3;
+}
+
+.writing-pinyin,
+.writing-hanzi,
+.writing-meaning {
+  margin: 0 0 12px;
+  overflow-wrap: anywhere;
+}
+
+.writing-pinyin {
+  color: var(--accent);
+  font-size: 1.22rem;
+  font-weight: 800;
+}
+
+.writing-hanzi {
+  color: var(--primary);
+  font-size: 2.2rem;
+  line-height: 1.15;
+  font-weight: 850;
+}
+
+.writing-meaning {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.muted-text {
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+.writing-practice {
+  display: grid;
+  gap: 8px;
+}
+
+.writing-practice-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.writing-canvas {
+  width: 100%;
+  height: 220px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background:
+    linear-gradient(to right, rgba(31, 42, 46, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(31, 42, 46, 0.08) 1px, transparent 1px),
+    var(--surface);
+  background-size: 28px 28px;
+  touch-action: none;
+}
+
+.writing-study-card {
+  min-height: 340px;
+}
+
+.writing-study-prompt {
+  overflow-wrap: anywhere;
+}
+
+.writing-study-answers {
+  display: grid;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.writing-study-practice {
+  display: grid;
+  gap: 8px;
+  margin-top: 22px;
+  text-align: left;
+}
+
+.study-writing-canvas {
+  height: 190px;
+}
+
 .hidden {
   display: none !important;
 }
@@ -769,7 +894,8 @@ button {
 
   .quick-add,
   .vocab-row,
-  .study-select-row {
+  .study-select-row,
+  .writing-row {
     grid-template-columns: 1fr;
   }
 
@@ -812,7 +938,8 @@ button {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .modal.large {
+  .modal.large,
+  .modal.xlarge {
     width: min(920px, calc(100vw - 32px));
   }
 
@@ -912,7 +1039,8 @@ button {
   }
 
   .modal,
-  .modal.large {
+  .modal.large,
+  .modal.xlarge {
     width: 100%;
     max-height: 96dvh;
     border-radius: 8px 8px 0 0;
@@ -979,6 +1107,23 @@ button {
 
   .vocab-pinyin {
     font-size: 1.05rem;
+  }
+
+  .writing-reference {
+    grid-template-columns: 30px 1fr;
+  }
+
+  .writing-practice-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .writing-practice-head .btn {
+    width: 100%;
+  }
+
+  .writing-canvas {
+    height: 200px;
   }
 
   .row-actions {

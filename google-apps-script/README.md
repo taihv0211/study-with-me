@@ -19,12 +19,22 @@ The script creates three sheets:
 - `settings`: stores the API token.
 - `decks`: one row per flashcard deck.
 - `vocabulary`: one row per vocabulary item.
+- `writing`: one row per handwriting practice item.
 
 `vocabulary` columns:
 
 - `id`
 - `deck_id`
 - `pinyin`
+- `meaning`
+- `position`
+- `updated_at`
+
+`writing` columns:
+
+- `id`
+- `pinyin`
+- `hanzi`
 - `meaning`
 - `position`
 - `updated_at`

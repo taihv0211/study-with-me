@@ -124,6 +124,73 @@ async function runWithButtonLoading(button, loadingText, task) {
   }
 }
 
+function setupHandwritingCanvases(container) {
+  const canvases = Array.from(container.querySelectorAll("[data-writing-canvas]"));
+
+  canvases.forEach((canvas) => {
+    const context = canvas.getContext("2d");
+    let drawing = false;
+
+    const resize = () => {
+      const rect = canvas.getBoundingClientRect();
+      const scale = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.floor(rect.width * scale));
+      canvas.height = Math.max(1, Math.floor(rect.height * scale));
+      context.setTransform(scale, 0, 0, scale, 0, 0);
+      context.lineWidth = 4;
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.strokeStyle = "#1f2a2e";
+    };
+
+    const point = (event) => {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top
+      };
+    };
+
+    resize();
+
+    canvas.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      drawing = true;
+      canvas.setPointerCapture(event.pointerId);
+      const current = point(event);
+      context.beginPath();
+      context.moveTo(current.x, current.y);
+    });
+
+    canvas.addEventListener("pointermove", (event) => {
+      if (!drawing) return;
+      event.preventDefault();
+      const current = point(event);
+      context.lineTo(current.x, current.y);
+      context.stroke();
+    });
+
+    const stop = (event) => {
+      if (!drawing) return;
+      drawing = false;
+      context.closePath();
+      if (canvas.hasPointerCapture(event.pointerId)) {
+        canvas.releasePointerCapture(event.pointerId);
+      }
+    };
+
+    canvas.addEventListener("pointerup", stop);
+    canvas.addEventListener("pointercancel", stop);
+
+    canvas.clearWriting = () => {
+      context.save();
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.restore();
+    };
+  });
+}
+
 function createAppView(root, modalRoot) {
   return {
     renderLayout(content) {
@@ -221,8 +288,231 @@ function createAppView(root, modalRoot) {
             </span>
             <span class="arrow">Kiểm tra</span>
           </a>
+          <a class="feature-tile" href="#/chinese/writing">
+            <span class="tile-kicker">Writing</span>
+            <span>
+              <h2 class="tile-title">Luyện viết</h2>
+              <p class="tile-desc">Viết chữ Trung bằng chuột hoặc cảm ứng rồi tự đối chiếu.</p>
+            </span>
+            <span class="arrow">Luyện viết</span>
+          </a>
         </section>
       `);
+    },
+
+    renderWritingPage({ items, syncStatus = "Local JSON/cache" }) {
+      const rows = items
+        .map(
+          (item, index) => `
+            <article class="writing-row" data-writing-id="${escapeHtml(item.id)}">
+              <div class="writing-reference">
+                <span class="row-index">${index + 1}</span>
+                <div>
+                  <span class="study-label">Phiên âm</span>
+                  <p class="writing-pinyin">${escapeHtml(item.pinyin)}</p>
+                </div>
+                <div>
+                  <span class="study-label">Từ tiếng Trung đúng</span>
+                  <p class="writing-hanzi">${escapeHtml(item.hanzi)}</p>
+                </div>
+                <div>
+                  <span class="study-label">Nghĩa</span>
+                  <p class="writing-meaning">${escapeHtml(item.meaning || "Chưa nhập nghĩa")}</p>
+                </div>
+              </div>
+              <div class="writing-practice">
+                <div class="writing-practice-head">
+                  <span class="study-label">Từ của tôi</span>
+                  <div class="button-row compact">
+                    <button class="btn ghost" type="button" data-action="clear-writing" data-id="${escapeHtml(item.id)}">Xóa bảng</button>
+                    <button class="btn danger" type="button" data-action="delete-writing-item" data-id="${escapeHtml(item.id)}">Xóa từ</button>
+                  </div>
+                </div>
+                <canvas class="writing-canvas" data-writing-canvas data-id="${escapeHtml(item.id)}" aria-label="Bảng viết tay"></canvas>
+              </div>
+            </article>
+          `
+        )
+        .join("");
+
+      this.renderLayout(`
+        <section class="section-head">
+          <div>
+            <h1>Luyện viết</h1>
+            <p>Dữ liệu luyện viết lưu riêng ở sheet writing. Nơi lưu hiện tại: ${escapeHtml(syncStatus)}.</p>
+          </div>
+        </section>
+        <form class="quick-add writing-add" data-form="writing-item">
+          <div class="field">
+            <label>Pinyin</label>
+            <input name="pinyin" placeholder="Ví dụ: xue xi" required />
+          </div>
+          <div class="field">
+            <label>Chữ Trung</label>
+            <input name="hanzi" placeholder="Ví dụ: 学习" required />
+          </div>
+          <div class="field">
+            <label>Nghĩa</label>
+            <input name="meaning" placeholder="Ví dụ: học tập" />
+          </div>
+          <button class="btn primary" type="button" data-action="add-writing-item">Thêm từ</button>
+        </form>
+        <div class="list-toolbar">
+          <div class="button-row">
+            <button class="btn primary" type="button" data-action="choose-writing-study">Study mặt chữ</button>
+            <button class="btn ghost" type="button" data-action="clear-all-writing">Xóa tất cả bảng viết</button>
+          </div>
+          <span class="meta">${items.length} từ luyện viết</span>
+        </div>
+        ${
+          items.length
+            ? `<section class="writing-list">${rows}</section>`
+            : `<div class="empty-state">Chưa có từ luyện viết. Thêm từ mới ở form phía trên.</div>`
+        }
+      `);
+      setupHandwritingCanvases(root);
+    },
+
+    showWritingStudyChoice(onChoose) {
+      modalRoot.innerHTML = `
+        <div class="modal-backdrop">
+          <section class="modal large" role="dialog" aria-modal="true">
+            <header class="modal-head">
+              <div>
+                <h2>Study mặt chữ</h2>
+                <p>Chọn chiều học cho danh sách luyện viết.</p>
+              </div>
+              <button class="icon-btn" type="button" data-action="close-modal" title="Đóng">×</button>
+            </header>
+            <div class="modal-body">
+              <div class="feature-grid">
+                <button class="feature-tile" type="button" data-writing-mode="hanzi-first">
+                  <span class="tile-kicker">Hanzi</span>
+                  <span>
+                    <h3 class="tile-title">Chữ Trung trước</h3>
+                    <p class="tile-desc">Nhìn chữ Trung, tự nhớ pinyin và nghĩa.</p>
+                  </span>
+                </button>
+                <button class="feature-tile" type="button" data-writing-mode="hint-first">
+                  <span class="tile-kicker">Hint</span>
+                  <span>
+                    <h3 class="tile-title">Pinyin + nghĩa trước</h3>
+                    <p class="tile-desc">Nhìn gợi ý, tự nhớ mặt chữ Trung.</p>
+                  </span>
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      `;
+
+      modalRoot.onclick = (event) => {
+        if (event.target.closest('[data-action="close-modal"]')) this.closeModal();
+        const mode = event.target.closest("[data-writing-mode]")?.dataset.writingMode;
+        if (mode) onChoose(mode);
+      };
+    },
+
+    renderWritingStudy({ cards, index, revealed, onReveal, onNext, onExit }) {
+      const card = cards[index];
+      modalRoot.innerHTML = `
+        <div class="modal-backdrop">
+          <section class="modal large" role="dialog" aria-modal="true">
+            <header class="modal-head">
+              <div>
+                <h2>Study mặt chữ</h2>
+                <p>Học tuần tự danh sách luyện viết, tự kiểm tra rồi lật đáp án.</p>
+              </div>
+              <button class="icon-btn" type="button" data-action="exit" title="Thoát">×</button>
+            </header>
+            <div class="modal-body">
+              <div class="progress-line">
+                <span>Từ ${index + 1}/${cards.length}</span>
+                <span>${revealed ? "Đã lật đáp án" : "Đang tự nhớ"}</span>
+              </div>
+              <div class="learn-card writing-study-card">
+                <div>
+                  <span class="study-label">${escapeHtml(card.promptLabel)}</span>
+                  <p class="prompt-text writing-study-prompt">${escapeHtml(card.prompt)}</p>
+                  ${
+                    card.practiceBeforeReveal && !revealed
+                      ? `<div class="writing-study-practice">
+                          <div class="writing-practice-head">
+                            <span class="study-label">Từ của tôi</span>
+                            <button class="btn ghost" type="button" data-action="clear-study-writing">Xóa bảng</button>
+                          </div>
+                          <canvas class="writing-canvas study-writing-canvas" data-study-writing-canvas aria-label="Bảng viết tay"></canvas>
+                        </div>`
+                      : ""
+                  }
+                  ${
+                    revealed
+                      ? `<div class="writing-study-answers">
+                          ${card.answers
+                            .map(
+                              (answer) => `
+                                <div>
+                                  <span class="study-label answer-label">${escapeHtml(answer.label)}</span>
+                                  <p class="meaning">${escapeHtml(answer.value)}</p>
+                                </div>
+                              `
+                            )
+                            .join("")}
+                        </div>`
+                      : ""
+                  }
+                </div>
+              </div>
+              ${
+                revealed
+                  ? `<button class="btn primary" type="button" data-action="next-writing-card" style="width:100%; margin-top:14px;">
+                      ${index + 1 >= cards.length ? "Hoàn thành" : "Tiếp tục"}
+                    </button>`
+                  : `<button class="btn primary" type="button" data-action="reveal-writing-answer" style="width:100%; margin-top:14px;">Lật đáp án</button>`
+              }
+            </div>
+          </section>
+        </div>
+      `;
+
+      setupHandwritingCanvases(modalRoot);
+
+      modalRoot.onclick = (event) => {
+        if (event.target.closest('[data-action="exit"]')) onExit();
+        if (event.target.closest('[data-action="clear-study-writing"]')) {
+          modalRoot.querySelector("[data-study-writing-canvas]")?.clearWriting();
+        }
+        if (event.target.closest('[data-action="reveal-writing-answer"]')) onReveal();
+        if (event.target.closest('[data-action="next-writing-card"]')) onNext();
+      };
+    },
+
+    renderWritingStudyComplete({ total, onRestart, onClose }) {
+      modalRoot.innerHTML = `
+        <div class="modal-backdrop">
+          <section class="modal" role="dialog" aria-modal="true">
+            <header class="modal-head">
+              <div>
+                <h2>Hoàn thành study mặt chữ</h2>
+                <p>Bạn đã xem hết ${total} từ trong danh sách luyện viết.</p>
+              </div>
+              <button class="icon-btn" type="button" data-action="close" title="Đóng">×</button>
+            </header>
+            <div class="modal-body">
+              <div class="empty-state">Chế độ này chỉ dùng để tự nhớ và đối chiếu, không chấm điểm.</div>
+            </div>
+            <footer class="modal-foot">
+              <button class="btn ghost" type="button" data-action="close">Đóng</button>
+              <button class="btn primary" type="button" data-action="restart">Học lại</button>
+            </footer>
+          </section>
+        </div>
+      `;
+
+      modalRoot.onclick = (event) => {
+        if (event.target.closest('[data-action="restart"]')) onRestart();
+        if (event.target.closest('[data-action="close"]')) onClose();
+      };
     },
 
     renderQuizPage({ decks }) {

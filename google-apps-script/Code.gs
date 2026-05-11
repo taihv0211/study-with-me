@@ -1,6 +1,7 @@
 const SETTINGS_SHEET = "settings";
 const DECKS_SHEET = "decks";
 const VOCABULARY_SHEET = "vocabulary";
+const WRITING_SHEET = "writing";
 const TOKEN_CELL = "B2";
 
 function doGet(event) {
@@ -12,7 +13,7 @@ function doGet(event) {
   }
 
   if (action === "list") {
-    return jsonResponse({ ok: true, decks: readDecks() });
+    return jsonResponse({ ok: true, decks: readDecks(), writingItems: readWritingItems() });
   }
 
   return jsonResponse({ ok: false, error: "Unknown action" });
@@ -27,7 +28,10 @@ function doPost(event) {
 
   if (payload.action === "saveAll") {
     writeDecks(payload.decks || []);
-    return jsonResponse({ ok: true, decks: readDecks() });
+    if (Array.isArray(payload.writingItems)) {
+      writeWritingItems(payload.writingItems);
+    }
+    return jsonResponse({ ok: true, decks: readDecks(), writingItems: readWritingItems() });
   }
 
   return jsonResponse({ ok: false, error: "Unknown action" });
@@ -37,6 +41,7 @@ function setup() {
   setupSettingsSheet();
   setupDecksSheet();
   setupVocabularySheet();
+  setupWritingSheet();
 }
 
 function setupSettingsSheet() {
@@ -57,6 +62,11 @@ function setupDecksSheet() {
 function setupVocabularySheet() {
   const sheet = getOrCreateSheet(VOCABULARY_SHEET);
   setHeader(sheet, ["id", "deck_id", "pinyin", "meaning", "position", "updated_at"]);
+}
+
+function setupWritingSheet() {
+  const sheet = getOrCreateSheet(WRITING_SHEET);
+  setHeader(sheet, ["id", "pinyin", "hanzi", "meaning", "position", "updated_at"]);
 }
 
 function readDecks() {
@@ -144,6 +154,48 @@ function writeDecks(decks) {
 
   replaceRows(DECKS_SHEET, deckRows);
   replaceRows(VOCABULARY_SHEET, cardRows);
+}
+
+function readWritingItems() {
+  setup();
+
+  return readObjects(WRITING_SHEET)
+    .map((row) => ({
+      id: String(row.id || ""),
+      pinyin: String(row.pinyin || ""),
+      hanzi: String(row.hanzi || ""),
+      meaning: String(row.meaning || ""),
+      position: Number(row.position || 0)
+    }))
+    .filter((item) => item.id && item.pinyin && item.hanzi)
+    .sort((a, b) => a.position - b.position)
+    .map((item) => ({
+      id: item.id,
+      pinyin: item.pinyin,
+      hanzi: item.hanzi,
+      meaning: item.meaning
+    }));
+}
+
+function writeWritingItems(items) {
+  setup();
+
+  const now = new Date().toISOString();
+  const rows = [];
+
+  (items || []).forEach((item, index) => {
+    if (!item.pinyin || !item.hanzi) return;
+    rows.push([
+      String(item.id || `writing-${index + 1}`),
+      String(item.pinyin || ""),
+      String(item.hanzi || ""),
+      String(item.meaning || ""),
+      index + 1,
+      now
+    ]);
+  });
+
+  replaceRows(WRITING_SHEET, rows);
 }
 
 function readObjects(sheetName) {

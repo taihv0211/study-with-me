@@ -1,4 +1,5 @@
 const STORAGE_KEY = "study-with-me.flashcard-decks.v2";
+const WRITING_STORAGE_KEY = "study-with-me.writing-items.v1";
 const DATA_URL = "./data/flashcards.json";
 const SHEETS_CONFIG = window.STUDY_WITH_ME_CONFIG || {};
 
@@ -16,6 +17,12 @@ const defaultDecks = [
       { id: "card-duibuqi", pinyin: "dui bu qi", meaning: "xin lỗi" }
     ]
   }
+];
+
+const defaultWritingItems = [
+  { id: "writing-nihao", pinyin: "ni hao", hanzi: "你好", meaning: "xin chào" },
+  { id: "writing-xiexie", pinyin: "xie xie", hanzi: "谢谢", meaning: "cảm ơn" },
+  { id: "writing-zaijian", pinyin: "zai jian", hanzi: "再见", meaning: "tạm biệt" }
 ];
 
 function clone(value) {
@@ -49,9 +56,20 @@ function normalizeDeck(deck) {
   };
 }
 
+function normalizeWritingItem(item) {
+  return {
+    id: item.id || createId("writing"),
+    pinyin: String(item.pinyin || item.term || "").trim(),
+    hanzi: String(item.hanzi || item.chinese || "").trim(),
+    meaning: String(item.meaning || item.answer || "").trim()
+  };
+}
+
 function createFlashcardStore() {
   let decks = loadDecks();
+  let writingItems = loadWritingItems();
   let loadedFromStorage = Boolean(readStorage());
+  let loadedWritingFromStorage = Boolean(readWritingStorage());
   let syncStatus = "local";
 
   function hasSheetsBackend() {
@@ -74,14 +92,20 @@ function createFlashcardStore() {
     if (!Array.isArray(payload.decks)) {
       throw new Error("Google Sheets trả về dữ liệu không đúng format.");
     }
+    if (payload.writingItems && !Array.isArray(payload.writingItems)) {
+      throw new Error("Google Sheets trả về dữ liệu luyện viết không đúng format.");
+    }
     decks = payload.decks.map(normalizeDeck);
+    writingItems = (payload.writingItems || []).map(normalizeWritingItem).filter((item) => item.pinyin && item.hanzi);
     persistLocal();
+    persistWritingLocal();
     syncStatus = "google-sheets";
   }
 
   async function persistSheets() {
     if (!hasSheetsBackend()) {
       persistLocal();
+      persistWritingLocal();
       return;
     }
 
@@ -90,7 +114,8 @@ function createFlashcardStore() {
       body: JSON.stringify({
         action: "saveAll",
         token: SHEETS_CONFIG.apiToken,
-        decks
+        decks,
+        writingItems
       })
     });
     const payload = await response.json();
@@ -98,7 +123,9 @@ function createFlashcardStore() {
       throw new Error(payload.error || "Không lưu được Google Sheets.");
     }
     decks = payload.decks.map(normalizeDeck);
+    writingItems = (payload.writingItems || writingItems).map(normalizeWritingItem).filter((item) => item.pinyin && item.hanzi);
     persistLocal();
+    persistWritingLocal();
     syncStatus = "google-sheets";
   }
 
@@ -118,6 +145,22 @@ function createFlashcardStore() {
     }
   }
 
+  function readWritingStorage() {
+    try {
+      return window.localStorage.getItem(WRITING_STORAGE_KEY);
+    } catch {
+      return null;
+    }
+  }
+
+  function writeWritingStorage(value) {
+    try {
+      window.localStorage.setItem(WRITING_STORAGE_KEY, value);
+    } catch {
+      // The app still works for the current tab if browser storage is blocked.
+    }
+  }
+
   function loadDecks() {
     try {
       const saved = readStorage();
@@ -130,8 +173,24 @@ function createFlashcardStore() {
     }
   }
 
+  function loadWritingItems() {
+    try {
+      const saved = readWritingStorage();
+      if (!saved) return clone(defaultWritingItems);
+      const parsed = JSON.parse(saved);
+      if (!Array.isArray(parsed)) return clone(defaultWritingItems);
+      return parsed.map(normalizeWritingItem).filter((item) => item.pinyin && item.hanzi);
+    } catch {
+      return clone(defaultWritingItems);
+    }
+  }
+
   function persistLocal() {
     writeStorage(JSON.stringify(decks));
+  }
+
+  function persistWritingLocal() {
+    writeWritingStorage(JSON.stringify(writingItems));
   }
 
   return {
@@ -147,13 +206,14 @@ function createFlashcardStore() {
         }
       }
 
-      if (loadedFromStorage) return;
+      if (loadedFromStorage && loadedWritingFromStorage) return;
       try {
         const response = await fetch(DATA_URL, { cache: "no-store" });
         if (!response.ok) return;
         const jsonDecks = await response.json();
-        if (!Array.isArray(jsonDecks)) return;
-        decks = jsonDecks.map(normalizeDeck);
+        if (Array.isArray(jsonDecks) && !loadedFromStorage) {
+          decks = jsonDecks.map(normalizeDeck);
+        }
       } catch {
         decks = clone(defaultDecks);
       }
@@ -161,6 +221,10 @@ function createFlashcardStore() {
 
     getDecks() {
       return clone(decks);
+    },
+
+    getWritingItems() {
+      return clone(writingItems);
     },
 
     getSyncStatus() {
@@ -184,6 +248,26 @@ function createFlashcardStore() {
       }
       await persistSheets();
       return clone(deck);
+    },
+
+    async saveWritingItem(input) {
+      const item = normalizeWritingItem(input);
+      if (!item.pinyin || !item.hanzi) {
+        throw new Error("Cần nhập pinyin và chữ Trung.");
+      }
+      const index = writingItems.findIndex((current) => current.id === item.id);
+      if (index >= 0) {
+        writingItems[index] = item;
+      } else {
+        writingItems.unshift(item);
+      }
+      await persistSheets();
+      return clone(item);
+    },
+
+    async deleteWritingItem(id) {
+      writingItems = writingItems.filter((item) => item.id !== id);
+      await persistSheets();
     },
 
     async deleteDeck(id) {
@@ -218,6 +302,10 @@ function createFlashcardStore() {
 
     createEmptyCard() {
       return { id: createId("card"), pinyin: "", meaning: "" };
+    },
+
+    createEmptyWritingItem() {
+      return { id: createId("writing"), pinyin: "", hanzi: "", meaning: "" };
     }
   };
 }

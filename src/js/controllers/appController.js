@@ -132,6 +132,18 @@ function createController({ store, view }) {
   let activeSession = null;
   let activeQuiz = null;
   let activeWritingStudy = null;
+  let writingDraftItems = null;
+
+  function getWritingDraftItems() {
+    if (!writingDraftItems) {
+      writingDraftItems = store.getWritingItems();
+    }
+    return writingDraftItems;
+  }
+
+  function hasWritingChanges() {
+    return JSON.stringify(getWritingDraftItems()) !== JSON.stringify(store.getWritingItems());
+  }
 
   function render() {
     const route = window.location.hash || "#/";
@@ -152,7 +164,11 @@ function createController({ store, view }) {
       return;
     }
     if (route === "#/chinese/writing") {
-      view.renderWritingPage({ items: store.getWritingItems(), syncStatus: store.getSyncStatus() });
+      view.renderWritingPage({
+        items: getWritingDraftItems(),
+        syncStatus: store.getSyncStatus(),
+        hasUnsavedChanges: hasWritingChanges()
+      });
       return;
     }
     if (route === "#/english") {
@@ -360,7 +376,7 @@ function createController({ store, view }) {
   }
 
   function startWritingStudy(mode) {
-    const items = store.getWritingItems();
+    const items = getWritingDraftItems();
     if (!items.length) {
       view.alert("Chưa có từ nào để học mặt chữ.");
       return;
@@ -431,7 +447,7 @@ function createController({ store, view }) {
     if (action === "delete-deck") {
       const deck = store.getDeck(id);
       if (!deck) return;
-      if (!view.confirm(`Xóa bộ "${deck.title}"?`)) return;
+      if (!(await view.confirm(`Xóa bộ "${deck.title}"?`))) return;
       try {
         await store.deleteDeck(id);
         render();
@@ -464,21 +480,22 @@ function createController({ store, view }) {
       const form = document.querySelector('[data-form="writing-item"]');
       if (!form?.reportValidity()) return;
       const formData = new FormData(form);
-      try {
-        await store.saveWritingItem({
-          ...store.createEmptyWritingItem(),
-          pinyin: formData.get("pinyin"),
-          hanzi: formData.get("hanzi"),
-          meaning: formData.get("meaning")
-        });
-        render();
-      } catch (error) {
-        view.alert(error.message);
+      const item = {
+        ...store.createEmptyWritingItem(),
+        pinyin: String(formData.get("pinyin") || "").trim(),
+        hanzi: String(formData.get("hanzi") || "").trim(),
+        meaning: String(formData.get("meaning") || "").trim()
+      };
+      if (!item.pinyin || !item.hanzi) {
+        view.alert("Cần nhập pinyin và chữ Trung.");
+        return;
       }
+      writingDraftItems = [item, ...getWritingDraftItems()];
+      render();
     }
 
     if (action === "choose-writing-study") {
-      const items = store.getWritingItems();
+      const items = getWritingDraftItems();
       if (!items.length) {
         view.alert("Chưa có từ nào để học mặt chữ.");
         return;
@@ -487,12 +504,27 @@ function createController({ store, view }) {
     }
 
     if (action === "delete-writing-item") {
-      if (!view.confirm("Xóa từ luyện viết này?")) return;
+      if (!(await view.confirm("Xóa từ luyện viết này?"))) return;
+      writingDraftItems = getWritingDraftItems().filter((item) => item.id !== id);
+      render();
+    }
+
+    if (action === "save-writing-items") {
+      const originalText = target.textContent;
+      target.disabled = true;
+      target.textContent = "Đang lưu...";
       try {
-        await store.deleteWritingItem(id);
+        const saved = await store.saveWritingItems(getWritingDraftItems());
+        writingDraftItems = saved;
         render();
+        view.alert("Đã lưu danh sách luyện viết.");
       } catch (error) {
         view.alert(error.message);
+      } finally {
+        if (target.isConnected) {
+          target.disabled = false;
+          target.textContent = originalText;
+        }
       }
     }
 

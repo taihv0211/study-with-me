@@ -265,6 +265,17 @@ function createFlashcardStore() {
       return clone(item);
     },
 
+    async saveWritingItems(inputs) {
+      if (!Array.isArray(inputs)) {
+        throw new Error("Danh sách luyện viết không đúng format.");
+      }
+      writingItems = inputs
+        .map(normalizeWritingItem)
+        .filter((item) => item.pinyin && item.hanzi);
+      await persistSheets();
+      return clone(writingItems);
+    },
+
     async deleteWritingItem(id) {
       writingItems = writingItems.filter((item) => item.id !== id);
       await persistSheets();

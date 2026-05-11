@@ -321,6 +321,170 @@ button {
   text-align: center;
 }
 
+.app-alert-root {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 50;
+  display: grid;
+  width: min(420px, calc(100vw - 32px));
+  gap: 10px;
+  pointer-events: none;
+}
+
+.app-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(18, 29, 32, 0.48);
+  animation: alert-in 0.16s ease-out;
+}
+
+.app-confirm-backdrop.is-leaving {
+  animation: alert-out 0.14s ease-in forwards;
+}
+
+.app-confirm {
+  width: min(420px, 100%);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.app-confirm-head {
+  display: grid;
+  grid-template-columns: 38px 1fr;
+  gap: 12px;
+  padding: 18px;
+}
+
+.app-confirm-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 999px;
+  background: #fff0ed;
+  color: var(--danger);
+  font-weight: 900;
+}
+
+.app-confirm h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.app-confirm p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.app-confirm-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding: 14px 18px;
+}
+
+.app-alert {
+  display: grid;
+  grid-template-columns: 32px 1fr 32px;
+  gap: 10px;
+  align-items: start;
+  border: 1px solid var(--line);
+  border-left-width: 5px;
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 12px;
+  box-shadow: var(--shadow);
+  pointer-events: auto;
+  animation: alert-in 0.2s ease-out;
+}
+
+.app-alert.success {
+  border-left-color: var(--ok);
+}
+
+.app-alert.warning {
+  border-left-color: var(--warning);
+}
+
+.app-alert.error {
+  border-left-color: var(--danger);
+}
+
+.app-alert-icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--primary);
+  font-weight: 900;
+}
+
+.app-alert.warning .app-alert-icon {
+  background: #fff7e8;
+  color: var(--warning);
+}
+
+.app-alert.error .app-alert-icon {
+  background: #fff0ed;
+  color: var(--danger);
+}
+
+.app-alert-message {
+  color: var(--text);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.app-alert-close {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 850;
+}
+
+.app-alert-close:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.app-alert.is-leaving {
+  animation: alert-out 0.18s ease-in forwards;
+}
+
+@keyframes alert-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes alert-out {
+  to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -1198,6 +1362,26 @@ button {
 
   .modal {
     max-height: 98dvh;
+  }
+
+  .app-alert-root {
+    right: 9px;
+    bottom: 9px;
+    width: calc(100vw - 18px);
+  }
+
+  .app-confirm-backdrop {
+    align-items: end;
+    padding: 0;
+  }
+
+  .app-confirm {
+    width: 100%;
+    border-radius: 8px 8px 0 0;
+  }
+
+  .app-confirm-foot .btn {
+    flex: 1 1 auto;
   }
 
   .tile-desc,

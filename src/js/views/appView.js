@@ -105,6 +105,96 @@ function downloadTextFile(filename, content, type = "application/json") {
   URL.revokeObjectURL(url);
 }
 
+function getAlertType(message) {
+  const text = String(message || "").toLowerCase();
+  if (/(lỗi|không|chưa|cần|unauthorized|error|failed|sai|quá lớn|không hợp lệ)/i.test(text)) return "error";
+  if (/(bỏ qua|cảnh báo|offline|cache)/i.test(text)) return "warning";
+  return "success";
+}
+
+function showAppAlert(message) {
+  let alertRoot = document.querySelector("[data-app-alert-root]");
+  if (!alertRoot) {
+    alertRoot = document.createElement("div");
+    alertRoot.className = "app-alert-root";
+    alertRoot.dataset.appAlertRoot = "";
+    document.body.appendChild(alertRoot);
+  }
+
+  const type = getAlertType(message);
+  const alert = document.createElement("div");
+  alert.className = `app-alert ${type}`;
+  alert.setAttribute("role", "status");
+  alert.innerHTML = `
+    <span class="app-alert-icon">${type === "success" ? "✓" : type === "warning" ? "!" : "×"}</span>
+    <span class="app-alert-message">${escapeHtml(message)}</span>
+    <button class="app-alert-close" type="button" aria-label="Đóng">×</button>
+  `;
+
+  const close = () => {
+    alert.classList.add("is-leaving");
+    window.setTimeout(() => alert.remove(), 180);
+  };
+
+  alert.querySelector(".app-alert-close").addEventListener("click", close);
+  alertRoot.appendChild(alert);
+  window.setTimeout(close, type === "error" ? 5200 : 3200);
+}
+
+function showAppConfirm(message) {
+  return new Promise((resolve) => {
+    const backdrop = document.createElement("div");
+    backdrop.className = "app-confirm-backdrop";
+    backdrop.innerHTML = `
+      <section class="app-confirm" role="dialog" aria-modal="true">
+        <header class="app-confirm-head">
+          <span class="app-confirm-icon">?</span>
+          <div>
+            <h2>Xác nhận</h2>
+            <p>${escapeHtml(message)}</p>
+          </div>
+        </header>
+        <footer class="app-confirm-foot">
+          <button class="btn ghost" type="button" data-confirm="cancel">Hủy</button>
+          <button class="btn danger" type="button" data-confirm="ok">Xóa</button>
+        </footer>
+      </section>
+    `;
+
+    const close = (value) => {
+      backdrop.classList.add("is-leaving");
+      window.setTimeout(() => {
+        backdrop.remove();
+        resolve(value);
+      }, 140);
+    };
+
+    backdrop.addEventListener("click", (event) => {
+      if (event.target === backdrop || event.target.closest('[data-confirm="cancel"]')) {
+        close(false);
+      }
+      if (event.target.closest('[data-confirm="ok"]')) {
+        close(true);
+      }
+    });
+
+    const onKeyDown = (event) => {
+      if (!backdrop.isConnected) {
+        document.removeEventListener("keydown", onKeyDown);
+        return;
+      }
+      if (event.key === "Escape") {
+        document.removeEventListener("keydown", onKeyDown);
+        close(false);
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    document.body.appendChild(backdrop);
+    backdrop.querySelector('[data-confirm="cancel"]')?.focus();
+  });
+}
+
 async function runWithButtonLoading(button, loadingText, task) {
   if (!button || button.disabled) return;
 
@@ -300,7 +390,7 @@ function createAppView(root, modalRoot) {
       `);
     },
 
-    renderWritingPage({ items, syncStatus = "Local JSON/cache" }) {
+    renderWritingPage({ items, syncStatus = "Local JSON/cache", hasUnsavedChanges = false }) {
       const rows = items
         .map(
           (item, index) => `
@@ -359,10 +449,11 @@ function createAppView(root, modalRoot) {
         </form>
         <div class="list-toolbar">
           <div class="button-row">
+            <button class="btn primary" type="button" data-action="save-writing-items">Lưu thay đổi</button>
             <button class="btn primary" type="button" data-action="choose-writing-study">Study mặt chữ</button>
             <button class="btn ghost" type="button" data-action="clear-all-writing">Xóa tất cả bảng viết</button>
           </div>
-          <span class="meta">${items.length} từ luyện viết</span>
+          <span class="meta">${items.length} từ luyện viết${hasUnsavedChanges ? " · Chưa lưu" : ""}</span>
         </div>
         ${
           items.length
@@ -823,7 +914,7 @@ function createAppView(root, modalRoot) {
 
         if (action === "delete-card") {
           const cardId = event.target.closest("[data-card-id]").dataset.cardId;
-          if (!this.confirm("Xóa từ này?")) return;
+          if (!(await this.confirm("Xóa từ này?"))) return;
           deck.cards = deck.cards.filter((card) => card.id !== cardId);
           this.showVocabularyManager({ deck, createCard, onSave });
         }
@@ -848,7 +939,7 @@ function createAppView(root, modalRoot) {
             this.alert("Chưa chọn từ nào để xóa.");
             return;
           }
-          if (!this.confirm(`Xóa ${selectedIds.length} từ đã chọn?`)) return;
+          if (!(await this.confirm(`Xóa ${selectedIds.length} từ đã chọn?`))) return;
           deck.cards = deck.cards.filter((card) => !selectedIds.includes(card.id));
           this.showVocabularyManager({ deck, createCard, onSave });
         }
@@ -1487,11 +1578,11 @@ function createAppView(root, modalRoot) {
     },
 
     alert(message) {
-      window.alert(message);
+      showAppAlert(message);
     },
 
     confirm(message) {
-      return window.confirm(message);
+      return showAppConfirm(message);
     }
   };
 }
